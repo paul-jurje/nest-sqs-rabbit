@@ -1,0 +1,54 @@
+services:
+  api:
+    image: node:20-alpine
+    working_dir: /usr/src/app
+    command: sh -c "npm install && npm run start:dev"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      # Queue provider: memory | sqs | rabbitmq
+      - QUEUE_PROVIDER=${QUEUE_PROVIDER:-memory}
+      # SQS Configuration
+      - QUEUE_SQS_ENDPOINT=${QUEUE_SQS_ENDPOINT:-http://localstack:4566}
+      - AWS_REGION=${AWS_REGION:-eu-south-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      # RabbitMQ Configuration
+      - QUEUE_RABBITMQ_URL=${QUEUE_RABBITMQ_URL:-}
+      - QUEUE_RABBITMQ_HOSTNAME=${QUEUE_RABBITMQ_HOSTNAME:-rabbitmq}
+      - QUEUE_RABBITMQ_PORT=${QUEUE_RABBITMQ_PORT:-5672}
+      - QUEUE_RABBITMQ_USERNAME=${QUEUE_RABBITMQ_USERNAME:-guest}
+      - QUEUE_RABBITMQ_PASSWORD=${QUEUE_RABBITMQ_PASSWORD:-guest}
+      - QUEUE_RABBITMQ_VHOST=${QUEUE_RABBITMQ_VHOST:-/}
+    volumes:
+      - .:/usr/src/app
+
+  localstack:
+    image: localstack/localstack:3
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DEBUG=0
+      - LOCALSTACK_HOST=localstack
+    volumes:
+      - "./.localstack:/var/lib/localstack"
+    profiles:
+      - sqs
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${QUEUE_RABBITMQ_USERNAME:-guest}
+      - RABBITMQ_DEFAULT_PASS=${QUEUE_RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - rabbitmq
